@@ -14,103 +14,114 @@
  *
  *  Author: Stelpro
  *
- *  Date: 2017-08-21
+ *  Date: 2017-11-16
  */
 
 preferences {
     input("zipcode", "text", title: "ZipCode (Outdoor Temperature)", description: "[Do not use space](Blank = No Forecast)")
-    input("heatdetails", "enum", title: "Do you want a detailed operating state notification?", options: ["No", "Yes"], defaultValue: "No", required: false, displayDuringSetup: true)
+    input("heatdetails", "enum", title: "Do you want a detailed operating state notification?", options: ["No", "Yes"], defaultValue: "No", required: true, displayDuringSetup: true)
 }
 
 metadata {
     definition (name: "Stelpro Ki Thermostat", namespace: "stelpro", author: "Stelpro") {
-        capability "Thermostat"
-        capability "Temperature Measurement"
         capability "Actuator"
+        capability "Temperature Measurement"
+        capability "Thermostat"
+	capability "Configuration"
         capability "Polling"
-        capability "Refresh"
         capability "Sensor"
-        capability "Configuration"
+        capability "Refresh"
 
         attribute "outsideTemp", "number"
 
         command "switchMode"
+	command "increaseHeatSetpoint"
+        command "decreaseHeatSetpoint"
         command "quickSetHeat"
         command "quickSetOutTemp"
-        command "increaseHeatSetpoint"
-        command "decreaseHeatSetpoint"
         command "setCustomThermostatMode"
         command "eco"
-        command "applyNow"
 
         fingerprint deviceId: "0x0806", inClusters: "0x5E,0x86,0x72,0x40,0x43,0x31,0x85,0x59,0x5A,0x73,0x20,0x42"
     }
 
     // simulator metadata
     simulator {
-        //Add test code here
+        status "heat"      : "command: 4003, payload: 01"
+		status "eco"     : "command: 4003, payload: 11"
+
+		status "heat 60"        : "command: 4303, payload: 01 09 3C"
+		status "heat 68"        : "command: 4303, payload: 01 09 44"
+		status "heat 72"        : "command: 4303, payload: 01 09 48"
+
+		status "temp 58"        : "command: 3105, payload: 01 2A 02 44"
+		status "temp 62"        : "command: 3105, payload: 01 2A 02 6C"
+		status "temp 70"        : "command: 3105, payload: 01 2A 02 BC"
+		status "temp 74"        : "command: 3105, payload: 01 2A 02 E4"
+		status "temp 78"        : "command: 3105, payload: 01 2A 03 0C"
+		status "temp 82"        : "command: 3105, payload: 01 2A 03 34"
+
+		status "idle"     : "command: 4203, payload: 00"
+		status "heating"    : "command: 4203, payload: 01"
+
+		// reply messages
+		reply "2502": "command: 2503, payload: FF"
     }
 
     tiles(scale : 2) {
 		multiAttributeTile(name:"thermostatMulti", type:"thermostat", width:6, height:4) {
 			tileAttribute("device.temperature", key: "PRIMARY_CONTROL") {
-				attributeState("temp", label:'${currentValue}')
-                attributeState("high", label:'HIGH')
-            	attributeState("low", label:'LOW')
-            	attributeState("--", label:'--')
+				attributeState("default", label:'${currentValue}')
+                		attributeState("high", label:'HIGH')
+            			attributeState("low", label:'LOW')
+            			attributeState("--", label:'--')
 			}
-            tileAttribute("device.heatingSetpoint", key: "VALUE_CONTROL") {
+            		tileAttribute("device.heatingSetpoint", key: "VALUE_CONTROL") {
 				attributeState("VALUE_UP", action: "increaseHeatSetpoint")
-                attributeState("VALUE_DOWN", action: "decreaseHeatSetpoint")
+                		attributeState("VALUE_DOWN", action: "decreaseHeatSetpoint")
 			}
 			tileAttribute("device.thermostatOperatingState", key: "OPERATING_STATE") {
 				attributeState("idle", backgroundColor:"#44b621")
 				attributeState("heating", backgroundColor:"#ffa81e")
 			}
 			tileAttribute("device.thermostatMode", key: "THERMOSTAT_MODE") {
-				attributeState("off", label:'Off')
-				attributeState("comfort", label:'Comfort')
-				attributeState("eco", label:'Eco')
+				attributeState("heat", label:'${name}')
+				attributeState("eco", label:'${name}')
 			}
-            tileAttribute("device.heatingSetpoint", key: "HEATING_SETPOINT")
-            {
-            	attributeState("heatingSetpoint", label:'${currentValue}')
-            }
+            		tileAttribute("device.heatingSetpoint", key: "HEATING_SETPOINT")
+            		{
+            			attributeState("default", label:'${currentValue}')
+            		}
 		}
-        standardTile("mode", "device.thermostatMode", width: 2, height: 2) {
-        	state "off", label:'${name}', action:"switchMode", nextState:"to_comfort", icon:"st.thermostat.off"
-			state "comfort", label:'${name}', action:"switchMode", nextState:"to_eco", icon:"http://cdn.device-icons.smartthings.com/Home/home29-icn@2x.png"
-			state "eco", label:'${name}', action:"switchMode", nextState:"...", icon:"http://cdn.device-icons.smartthings.com/Outdoor/outdoor3-icn@2x.png"
-			state "to_comfort", label: "comfort", action:"switchMode", nextState:"to_eco"
-			state "to_eco", label: "eco", action:"switchMode", nextState:"..."
-			state "...", label: "...", action:"heat", nextState:"comfort"
+        	standardTile("mode", "device.thermostatMode", width: 4, height: 2) {
+			state "heat", label:'${name}', action:"switchMode", nextState:"eco", icon:"http://cdn.device-icons.smartthings.com/Home/home29-icn@2x.png"
+			state "eco", label:'${name}', action:"switchMode", nextState:"heat", icon:"http://cdn.device-icons.smartthings.com/Outdoor/outdoor3-icn@2x.png"
         }
-		valueTile("heatingSetpoint", "device.heatingSetpoint", width: 2, height: 2) {
-            state "temperature", label:'Setpoint ${currentValue}°', backgroundColors:[
-                    [value: 31, color: "#153591"],
-                    [value: 44, color: "#1e9cbb"],
-                    [value: 59, color: "#90d2a7"],
-                    [value: 74, color: "#44b621"],
-                    [value: 84, color: "#f1d801"],
-                    [value: 95, color: "#d04e00"],
-                    [value: 96, color: "#bc2323"]
-            ]
-            state "--", label:'--', backgroundColor:"#bdbdbd"
-        }
-        standardTile("refresh", "device.refresh", decoration: "flat", width: 2, height: 2) {
-            state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
-        }
-        main ("thermostatMulti")
-        details(["thermostatMulti", "mode", "heatingSetpoint", "refresh"])
-    }
+		valueTile("heatingSetpoint", "device.heatingSetpoint", width: 4, height: 4) {
+            		state "temperature", label:'Setpoint ${currentValue}°', backgroundColors:[
+                    		[value: 31, color: "#153591"],
+                    		[value: 44, color: "#1e9cbb"],
+                    		[value: 59, color: "#90d2a7"],
+                    		[value: 74, color: "#44b621"],
+                    		[value: 84, color: "#f1d801"],
+                    		[value: 95, color: "#d04e00"],
+                    		[value: 96, color: "#bc2323"]
+            		]
+            		state "--", label:'--', backgroundColor:"#bdbdbd"
+        	}
+        	standardTile("refresh", "device.refresh", decoration: "flat", width: 2, height: 2) {
+            		state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
+        	}
+        	main ("thermostatMulti")
+        	details(["thermostatMulti", "mode", "heatingSetpoint", "refresh"])
+    	}
 }
 
 def parse(String description)
 {
-	if (description == "updated")
-    	return []
+	//if (description == "updated")
+    	//return []
 
-    def unitScale = getTemperatureScale()
     //Class, version
     def map = createEvent(zwaveEvent(zwave.parse(description, [0x40:2, 0x43:2, 0x31:3, 0x42:1])))
     if (!map) {
@@ -118,13 +129,14 @@ def parse(String description)
     }
 
     def result = [map]
-    if (map.name in ["heatingSetpoint","thermostatMode"]) {
+    if (map.isStateChange && map.name in ["heatingSetpoint","thermostatMode"]) {
         def map2 = [
                 name: "thermostatSetpoint",
                 unit: getTemperatureScale()
         ]
         if (map.name == "thermostatMode") {
             state.lastTriedMode = map.value
+			map2.value = device.latestValue("heatingSetpoint")
         }
         else {
             def mode = device.latestValue("thermostatMode")
@@ -173,7 +185,7 @@ def zwaveEvent(physicalgraph.zwave.commands.thermostatsetpointv2.ThermostatSetpo
     state.size = cmd.size
     state.scale = cmd.scale
     state.precision = cmd.precision
-    sendEvent(name:"heatingSetpoint", value:map.value)
+    //sendEvent(name:"heatingSetpoint", value:map.value)
     map
 }
 
@@ -212,7 +224,7 @@ def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv3.SensorMultilevelR
         map.unit = "%"
         map.name = "humidity"
     }
-    sendEvent(name:"temperature", value:map.value)
+    //sendEvent(name:"temperature", value:map.value)
     map
 }
 
@@ -239,18 +251,18 @@ def zwaveEvent(physicalgraph.zwave.commands.thermostatoperatingstatev1.Thermosta
 def zwaveEvent(physicalgraph.zwave.commands.thermostatmodev2.ThermostatModeReport cmd) {
     def map = [:]
     switch (cmd.mode) {
-        case physicalgraph.zwave.commands.thermostatmodev2.ThermostatModeReport.MODE_HEAT:
-            map.value = "comfort"
+        //Heat mode
+		case physicalgraph.zwave.commands.thermostatmodev2.ThermostatModeReport.MODE_HEAT:
+            map.value = "heat"
             break
-        case physicalgraph.zwave.commands.thermostatmodev2.ThermostatModeReport.MODE_OFF:
-            map.value = "off"
-            break
-        default:
+        
+		//Eco mode
+		case '11':
             map.value = "eco"
             break
     }
     map.name = "thermostatMode"
-    sendEvent(name:"thermostatMode", value:map.value)
+    //sendEvent(name:"thermostatMode", value:map.value)
     map
 }
 
@@ -334,35 +346,34 @@ def configure() {
 	poll()
 }
 
-def applyNow() {
-    float currentHeatSetpoint = device.currentValue("heatingSetpoint")
-    def deviceScale
-    def locationScale = getTemperatureScale()
+def quickSetHeat(degrees) {
+    setHeatingSetpoint(degrees, 1000)
+}
 
-    sendEvent( name: 'change', value: 0 )
-    log.debug("currentHeatSetpoint $currentHeatSetpoint")
-    if (locationScale == "C")
-    {
-        deviceScale = 0
+def setHeatingSetpoint(preciseDegrees, Integer delay = 1000) {
+	def degrees = new BigDecimal(preciseDegrees).setScale(1, BigDecimal.ROUND_HALF_UP)
+	log.trace "setHeatingSetpoint($degrees, $delay)"
+    def deviceScale = state.scale ?: 1
+	def deviceScaleString = deviceScale == 2 ? "C" : "F"
+    def locationScale = getTemperatureScale()
+	def p = (state.precision == null) ? 1 : state.precision
+
+    def convertedDegrees
+    if (locationScale == "C" && deviceScaleString == "F") {
+        convertedDegrees = celsiusToFahrenheit(degrees)
+    } else if (locationScale == "F" && deviceScaleString == "C") {
+        convertedDegrees = fahrenheitToCelsius(degrees)
+    } else {
+        convertedDegrees = degrees
     }
-    else
-    {
-        deviceScale = 1
-    }
+	
+	sendEvent(name: "heatingSetpoint", value: degrees, unit: locationScale)
 
     delayBetween([
-            zwave.thermostatSetpointV2.thermostatSetpointSet(setpointType: 1, scale: deviceScale, precision: state.precision, scaledValue: currentHeatSetpoint).format(),
+            zwave.thermostatSetpointV2.thermostatSetpointSet(setpointType: 1, scale: deviceScale, precision: p, scaledValue: convertedDegrees).format(),
+			zwave.thermostatSetpointV2.thermostatSetpointGet(setpointType: 1).format(),
             poll()
-    ], 1000)
-}
-
-def quickSetHeat(degrees) {
-    setHeatingSetpoint(degrees, 0)
-}
-
-def setHeatingSetpoint(degrees, delay = 0) {
-    sendEvent(name:"heatingSetpoint", value:degrees)
-    applyNow()
+    ], delay)
 }
 
 def quickSetOutTemp(degrees) {
@@ -392,88 +403,73 @@ def setOutdoorTemperature(Double degrees, Integer delay = 0) {
 
 def increaseHeatSetpoint()
 {
-	def currentMode = device.currentState("thermostatMode")?.value
-    if (currentMode != "off")
-    {
-        float currentSetpoint = device.currentValue("heatingSetpoint")
-        def locationScale = getTemperatureScale()
-        float maxSetpoint
-        float step
+	float currentSetpoint = device.currentValue("heatingSetpoint")
+	def locationScale = getTemperatureScale()
+	float maxSetpoint
+	float step
 
-        if (locationScale == "C")
-        {
-            maxSetpoint = 30;
-            step = 0.5
-        }
-        else
-        {
-            maxSetpoint = 86
-            step = 1
-        }
+	if (locationScale == "C")
+	{
+		maxSetpoint = 30;
+		step = 0.5
+	}
+	else
+	{
+		maxSetpoint = 86
+		step = 1
+	}
 
-        if (currentSetpoint < maxSetpoint)
-        {
-            currentSetpoint = currentSetpoint + step
-            quickSetHeat(currentSetpoint)
-        }
-    }
+	if (currentSetpoint < maxSetpoint)
+	{
+		currentSetpoint = currentSetpoint + step
+		quickSetHeat(currentSetpoint)
+	}
 }
 
 def decreaseHeatSetpoint()
 {
-	def currentMode = device.currentState("thermostatMode")?.value
-    if (currentMode != "off")
-    {
-        float currentSetpoint = device.currentValue("heatingSetpoint")
-        def locationScale = getTemperatureScale()
-        float minSetpoint
-        float step
+	float currentSetpoint = device.currentValue("heatingSetpoint")
+	def locationScale = getTemperatureScale()
+	float minSetpoint
+	float step
 
-        if (locationScale == "C")
-        {
-            minSetpoint = 5;
-            step = 0.5
-        }
-        else
-        {
-            minSetpoint = 41
-            step = 1
-        }
+	if (locationScale == "C")
+	{
+		minSetpoint = 5;
+		step = 0.5
+	}
+	else
+	{
+		minSetpoint = 41
+		step = 1
+	}
 
-        if (currentSetpoint > minSetpoint)
-        {
-            currentSetpoint = currentSetpoint - step
-            quickSetHeat(currentSetpoint)
-        }
+	if (currentSetpoint > minSetpoint)
+	{
+		currentSetpoint = currentSetpoint - step
+		quickSetHeat(currentSetpoint)
     }
 }
 
 def switchMode() {
     def currentMode = device.currentState("thermostatMode")?.value
-    def lastTriedMode = state.lastTriedMode ?: currentMode ?: "comfort"
-    def supportedModes = getDataByName("supportedModes")
-    def modeOrder = modes()
-    def next = { modeOrder[modeOrder.indexOf(it) + 1] ?: modeOrder[0] }
-    def nextMode = next(lastTriedMode)
-    if (supportedModes?.contains(currentMode)) {
-        while (!supportedModes.contains(nextMode) && nextMode != "comfort") {
-            nextMode = next(nextMode)
-        }
-    }
-    state.lastTriedMode = nextMode
+  	def lastTriedMode = state.lastTriedMode ?: currentMode ?: "heat"
+  	def modeOrder = modes()
+  	def next = { modeOrder[modeOrder.indexOf(it) + 1] ?: modeOrder[0] }
+  	def nextMode = next(lastTriedMode)
+  	state.lastTriedMode = nextMode
     delayBetween([
-            zwave.thermostatModeV2.thermostatModeSet(mode: modeMap[nextMode]).format(),
-            poll()
-    ], 1000)
+        zwave.thermostatModeV2.thermostatModeSet(mode: modeMap[nextMode]).format(),
+    	zwave.thermostatModeV2.thermostatModeGet().format()
+  ], 1000)
 }
 
 def modes() {
-    ["comfort", "eco", "off"]
+    ["heat", "eco"]
 }
 
 def getModeMap() { [
-		"off": 0,
-        "comfort": 1,
+        "heat": 1,
         "eco": 11,
 ]}
 
@@ -485,19 +481,11 @@ def setCoolingSetpoint(coolingSetpoint) {
     log.trace "${device.displayName} does not support cool setpoint"
 }
 
-def off() {
-    log.trace "off mode applied"
-	delayBetween([
-		zwave.thermostatModeV2.thermostatModeSet(mode: 0).format(),
-		poll()
-	], 1000)
-}
-
 def heat() {
 	log.trace "heat mode applied"
 	delayBetween([
 		zwave.thermostatModeV2.thermostatModeSet(mode: 1).format(),
-		poll()
+		zwave.thermostatModeV2.thermostatModeGet().format()
 	], 1000)
 }
 
@@ -505,8 +493,12 @@ def eco() {
 	log.trace "eco mode applied"
 	delayBetween([
 		zwave.thermostatModeV2.thermostatModeSet(mode: 11).format(),
-		poll()
+		zwave.thermostatModeV2.thermostatModeGet().format()
 	], 1000)
+}
+
+def off() {
+    log.trace "${device.displayName} does not support off mode"
 }
 
 def auto() {
@@ -528,7 +520,7 @@ def setCustomThermostatMode(mode) {
 def setThermostatMode(String value) {
 	delayBetween([
 		zwave.thermostatModeV2.thermostatModeSet(mode: modeMap[value]).format(),
-		poll()
+		zwave.thermostatModeV2.thermostatModeGet().format()
 	], 1000)
 }
 
