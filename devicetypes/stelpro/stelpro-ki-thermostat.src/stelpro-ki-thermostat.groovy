@@ -14,7 +14,7 @@
  *
  *  Author: Stelpro
  *
- *  Date: 2018-03-01
+ *  Date: 2018-03-26
  */
 
 preferences {
@@ -108,7 +108,7 @@ def parseCalled(String description) {
     	//return []
 
     //Class, version
-    def map = createEvent(zwaveEvent(zwave.parse(description, [0x40:2, 0x43:2, 0x31:3, 0x42:1])))
+    def map = createEvent(zwaveEvent(zwave.parse(description, [0x40:2, 0x43:2, 0x31:3, 0x42:1, 0x20:1, 0x85: 2])))
     if (!map) {
         return null
     }
